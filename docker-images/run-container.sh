@@ -1,1 +1,1 @@
-docker run -p 9090:80 res/apache_php
+docker run -d -p 8080:80 res/apache_php
