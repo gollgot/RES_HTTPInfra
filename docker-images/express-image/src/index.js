@@ -4,8 +4,12 @@ var Chance = require('chance');
 var app = express();
 var chance = new Chance();
 
-app.get('/', function(request, response){
-    response.send( generateCities() );
+app.get('/cities/:number', function(request, response){
+    response.send(generateCities(request.params.number));
+});
+
+app.get('/animals/:type/:number', function(request, response){
+    response.send(generateAnimals(request.params.type, request.params.number));
 });
 
 
@@ -13,16 +17,7 @@ app.listen(3000, function(){
     console.log('Accepting HTTP requests on port 3000');
 });
 
-//console.log("Voici un animal : " + chance.animal());
-
-function generateCities() {
-    var nbOfCities = chance.integer({
-        min: 0,
-        max: 10
-    });
-
-    console.log(nbOfCities);
-
+function generateCities(nbOfCities) {
     var cities = [];
     for(var i = 0; i < nbOfCities; ++i){
         var cityName = chance.city();
@@ -38,4 +33,18 @@ function generateCities() {
 
     console.log(cities);
     return cities;
+}
+
+function generateAnimals(type, nbOfAnimals) {
+    var animals = [];
+    for(var i = 0; i < nbOfAnimals; ++i){
+        var animal = chance.animal({type: type});
+
+        animals.push({
+            name: animal,
+        });
+    }
+
+    console.log(animals);
+    return animals;
 }
