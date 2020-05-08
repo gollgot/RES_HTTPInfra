@@ -91,7 +91,7 @@ Notre application express s'inspire naturellement de l'exemple donné dans les c
 - `/cities/{number}`
 - `/animals/{type}/{number}`
 
-Les éléments entre accolades indiquent les paramètres. `{number}` désigne pour les deux routes le nombre d'éléments à retourner, tandis que `{type}` précise la catégorie d'animal à générer. Ce paramètre type peut prendre les valeur définient par la librairie chance.js: "ocean", "desert", "grassland", "forest", "farm", "pet", ou "zoo".
+Les éléments entre accolades indiquent les paramètres. `{number}` désigne pour les deux routes le nombre d'éléments à retourner, tandis que `{type}` précise la catégorie d'animal à générer. Ce paramètre type peut prendre les valeur définient par la librairie chance.js: "ocean", "desert", "grassland", "forest", "farm", "pet", ou "zoo". Si l'on accède à la route par défaut (/), un message décrivant les deux routes sus-mentionnées sera simplement affiché.
 
 En cas de paramètre erroné, un message descriptif sera retourné de manière native.
 
