@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t res/express-animals .
+docker build -t res/express-cities .
