@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run res/express-cities
+docker run res/express

@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t res/express-cities .
+docker build -t res/express .
