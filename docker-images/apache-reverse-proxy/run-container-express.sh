@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run res/express
+docker run -d res/express

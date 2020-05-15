@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run res/apache_php
+docker run -d res/apache_php
