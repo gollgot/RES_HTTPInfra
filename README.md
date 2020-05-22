@@ -193,6 +193,7 @@ Ce fichier de configuration sert à définir un virtual host par défaut qui ne 
 # Etape4: Requête AJAX avec JQuery
 
 ## Description
+Dans cette 4ème partie nous allons permettre à une page web de mettre à jour une partie spécique du code dynamiquement grâce à des requêtes AJAX. Chaque deux secondes, une requête va aller récupérer un animal sous le format JSON vers l'API express et mettre à jour une partie du site statique avec le nom de l'animal.
 
 ## Travail effectué
 Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-ajax-jqueryy).
