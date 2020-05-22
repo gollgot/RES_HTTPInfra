@@ -1,5 +1,5 @@
 <?php
-	// Retrieve env varaibles
+	// Retrieve env variables
 	$staticAppAddress = getenv('STATIC_APP');
 	$dynamicAppAddress = getenv('DYNAMIC_APP');
 ?>
