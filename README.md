@@ -1,14 +1,16 @@
-# Etape 5: Configuration dynamique du reverse proxy
+# Etape supplémentaire 1: Load balancing -> multiple noeuds
 ## Description
-Dans cette étape, nous poursuivons le travail de l'étape 3 en rendant dynamique la configuration des adresses IP dans le container du serveur reverse proxy. Pour ce faire nous allons remplacer le fichier `apache2-foreground` du serveur Apache afin de permettre l'exécution d'un fichier PHP qui créera le fichier des virtual hosts.
+Dans cette étape, nous poursuivons le travail de l'étape 5 en l'améliorant. Nous allons ajouter un load balencer, cela va permettre de définir des clusters, par exemple un cluster-static qui contient plusieurs instances du serveur statique, un cluster-dynamic qui va lui contenir plusieurs instances du serveur dynamique. Le load-balancer va permettre de gérer la montée en charge en aiguillant les requêtes des clients vers l'ou ou l'autre des serveurs présent dans un cluster.
 
 ## Travail effectué
-Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-dynamic-configuration).
+Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-load-balancer).
 
 ### Dockerfile
-La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus deux instructions COPY:
-- la première pour copier le script `apache2-foreground` dans le container,
-- la deuxième pour copier le dossier `template`, qui contient le fichier PHP `config-template.php`, dans le container.
+La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement de deux modules apache qui concerne le load balancing :
+- proxy_balancer: Module officiel apache qui fonctionne avec celui du reverse proxy utilisé dans l'étape précédente. Cela va donc permettre à notre reverse proxy de pouvoir faire du load balancing.
+- lbmethod_byrequests: Module devant être activer afin de pouvoir faire du load balancing. Il permet de distribuer les requêtes à tous les processus worker afin qu'ils traitent tous le nombre de requêtes pour lequel ils ont été configurés.
+
+Le reste du docker file n'a pas changé.
 
 ```
 FROM php:7.4.5-apache
@@ -21,60 +23,76 @@ COPY templates /var/apache2/templates
 
 COPY conf/ /etc/apache2
 
-RUN a2enmod proxy proxy_http
+RUN a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests
 RUN a2ensite 000-* 001-*
 ```
 
 ### apache2-foreground
-Ce fichier à été initialement récupéré du [repo github](https://github.com/docker-library/php/tree/master/7.4/buster/apache) de l'image docker PHP que nous avons utilisé pour nos containers. Son contenu diffère de celui utilisé dans les webcasts fournis. En effet, il contient diverses instructions supplémentaires ayant notamment pour but de spécifier d'autres variables d'environnement cruciales, comme par exemple `APACHE_RUN_DIR` qui désigne le dossier d'exécution d'Apache.  
-A la fin de ce script, nous avons ajouté le bloc d'instructions suivant: 
-```
-echo "Setup for RES lab..."
-echo "Static App URL: $STATIC_APP"
-echo "Dynamic App URL: $DYNAMIC_APP"
-php /var/apache2/templates/config-template.php > /etc/apache2/sites-available/001-reverse-proxy.conf
-```
-Ce dernier à pour but de débugger les variables d'environnement fournies en paramètres et surtout d'exécuter le script `config-template.php` pour placer son résultat dans le fichier `001-reverse-proxy.conf` du container.
-
-**ATTENTION:**  il est nécessaire de rendre le fichier `apache2-foreground` exécutable, par exemple avec la commande `chmod +x apache2-foreground`.
+Ce fichier n'a pas changé.
 
 ### config-template.php
 Ce script php rend en sortie la configuration virtual host. Il utilise les variables d'environnement passées en paramètre lors de la création du container. Comme décrit plus haut, ce script sera utilisé par `apache2-foreground` qui va écrire le résultat dans le fichier `001-reverse-proxy.conf`, ce qui permet de créé dynamiquement la configuration virtual host.
 ```
 <?php
-	// Retrieve env variables
-	$staticAppAddress = getenv('STATIC_APP');
-	$dynamicAppAddress = getenv('DYNAMIC_APP');
+	$staticAppAddress1 = getenv('STATIC_APP_1');
+	$staticAppAddress2 = getenv('STATIC_APP_2');
+	$dynamicAppAddress1 = getenv('DYNAMIC_APP_1');
+	$dynamicAppAddress2 = getenv('DYNAMIC_APP_2');
 ?>
 
 <VirtualHost *:80>
 	ServerName labohttp.ch
+
+	<Proxy "balancer://dynamic-cluster">
+		BalancerMember 'http://<?php print "$dynamicAppAddress1"; ?>'
+		BalancerMember 'http://<?php print "$dynamicAppAddress2"; ?>'
+	</Proxy>
+
+	<Proxy "balancer://static-cluster">
+		BalancerMember 'http://<?php print "$staticAppAddress1"; ?>/'
+		BalancerMember 'http://<?php print "$staticAppAddress2"; ?>/'
+	</Proxy>
+
+	# API
+	ProxyPass '/api/' 'balancer://dynamic-cluster/'
+	ProxyPassReverse '/api/' 'balancer://dynamic-cluster/'
+
+	# Site web static
+	ProxyPass '/' 'balancer://static-cluster/'
+	ProxyPassReverse '/' 'balancer://mycluster1/'
 	
-	# animals, cities
-	ProxyPass '/api/' 'http://<?php print "$dynamicAppAddress"; ?>/'
-	ProxyPassReverse '/api/' 'http://<?php print "$dynamicAppAddress"; ?>/'
-	
-	# website
-	ProxyPass '/' 'http://<?php print "$staticAppAddress"; ?>/'
-	ProxyPassReverse '/' 'http://<?php print "$staticAppAddress"; ?>/'
 </VirtualHost>
 ```
 
+Nous définissons deux clusters (dynamic-cluster et static-cluster). Chaque cluster défini des "balancerMember" qui sont des liesn vers chaque serveur que nous voulons ajouter au cluster (c'est donc plusieurs réplications du même site, ici le site web statique ou l'API dynamique). Ensuite nous avons les "ProxyPass et ProxyPassReverse" qui vont référencer les routes et quel cluster y est associé.
+
+Nous avons donc deux clusters et dans chacun d'eux nous avons deux réplications du site en question. Notre reverse proxy va donc être capable d'aiguiller chaque requête vers le bon serveur web en fonction de la charge.
+
 ### Scripts container
-Par rapport aux étapes précédentes, seule le script `run-container-reverse-prox.sh` a été modifié:
 ```
 #!/bin/bash
-docker run -d -e STATIC_APP=172.17.0.2:80 -e DYNAMIC_APP=172.17.0.3:3000 -p 8080:80 res/apache_rp
+docker run -e STATIC_APP_1=172.17.0.2:80 -e STATIC_APP_2=172.17.0.3:80 -e DYNAMIC_APP_1=172.17.0.4:3000 -e DYNAMIC_APP_2=172.17.0.5:3000 -p 8080:80 res/apache_rp
 ```
-Ce script modifié, à l'aide de l'option `-e`, ajoute des variables d'environnement qui spécifient les adresses IP et ports des deux containers des sites web. Selon les adresses IP des containers spécifiés, il est nécessaire de modifier la commande avec les adresses correspondantes. Ainsi, bien qu'il soit plus pratique de taper directement la commande manuellement afin d'éviter une erreur, nous avons tout de même mis à jour le script pour avoir un modèle de cette commande.
+La seule chose ajoutée à ce script par rapport à la précédente étape est que nous ajoutons 2 variables d'environnemnt en plus "STATIC_APP_2" et "DYNAMIC_APP_2" et nous avon renommé les précédente avec "_1" à la fin. Ainsi nous avons pour chaque serveur web (statique / dynamique), des variables d'environnements représentant leur IP.
+
+### Site web statique
+Afin de voir si le load balancing fonctionne correctement, nous avons modifier notre site web statique :
+- Le fichier "index.html" à été renommé en "index.php" afin de pouvoir écrire du PHP à l'intérieur.
+- Nous avons ajouté en PHP l'affichage de l'IP du serveur qui a généré la page web.
+
+Il va donc falloir build une nouvelle fois l'image du serveur web static afin de prendre ces changements en compte.
 
 ### Marche à suivre pour démarrer l'infrastructure
-1. Reconstruire l'image du server-proxy avec le script `build-image-reverse-proxy.sh`.
-1. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
-1. Démarrer les deux premiers containers avec les scripts `run-container-static.sh` et `run-container-express.sh`.
-1. A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP de ces deux containers.
-1. Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express.
-1. Il est maintenant possible d'accéder au deux serveurs web, static et express, via les URL `/` et `/api/` respectivement, en utilisant le port 8080. Pour y accéder via le domaine "labohttp.ch" sur un navigateur, il est nécessaire d'ajouter l'entrée ci-dessous dans le fichier `hosts` de la machine (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
+1. Reconstruire l'image du site web static en allant dans le dossier `docker-images/apache-php-image/` et lancant le script `build-image.sh`.
+2. Reconstruire l'image du server-proxy en retournant dans le dossier `docker-images/apache-reverse-proxy/` et lancant le script `build-image-reverse-proxy.sh`.
+3. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
+4. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
+5. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
+6. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
+- 6a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
+- 6b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
+7. Il est maintenant possible d'accéder au site web via le domaine "labohttp.ch" sur un navigateur, il est cependant nécessaire d'ajouter l'entrée ci-dessous dans le fichier `hosts` de la machine (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
 ```
 <IP docker> labohttp.ch
 ```
+8. Si vous rafraichissez plusieurs fois la page, vous devriez voir l'ip du serveur changer, cela signifie que le load balancing fonctionne correctement.

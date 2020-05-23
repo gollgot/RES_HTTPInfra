@@ -25,6 +25,5 @@
 	# Site web static
 	ProxyPass '/' 'balancer://static-cluster/'
 	ProxyPassReverse '/' 'balancer://mycluster1/'
-
 	
 </VirtualHost>
