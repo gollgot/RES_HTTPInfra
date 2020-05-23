@@ -1,14 +1,20 @@
-# Etape supplémentaire 1: Load balancing -> multiple noeuds
+# Etape supplémentaire 2: Load balancing -> Sticky sessions VS Round-Robin
 ## Description
-Dans cette étape, nous poursuivons le travail de l'étape 5 en l'améliorant. Nous allons ajouter un load balencer, cela va permettre de définir des clusters, par exemple un cluster-static qui contient plusieurs instances du serveur statique, un cluster-dynamic qui va lui contenir plusieurs instances du serveur dynamique. Le load-balancer va permettre de gérer la montée en charge en aiguillant les requêtes des clients vers l'ou ou l'autre des serveurs présent dans un cluster.
+Dans cette étape, nous allons comparer la notion de sticky sessions et celle de round robin. Pour cela nous allons mettre en place un système de sticky sessions sur le cluster du site web statique. Nous laisserons le cluster de l'application web dynamique en round-robin (ce qui était par défaut jusqu'à maintenant).
 
 ## Travail effectué
 Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-load-balancer).
 
+### Sticky sessions
+Lorsqu'une requête est mandatée vers un serveur d'arrière-plan particulier, toutes les requêtes suivantes du même utilisateur seront alors mandatées vers le même serveur d'arrière-plan. De nombreux répartiteurs de charge implémentent cette fonctionnalité via une table qui associe les adresses IP des clients aux serveurs d'arrière-plan.
+
+Dans notre configuration, nous allons utiliser les headers HTTP ainsi que des cookies pour implémenter la notion de sticky sessions.
+
+### Round-robin
+Chaque requête envoyée au reverse proxy va être redirigé vers un serveur du cluster de manière incrémental et cyclique. Si nous avons 3 serveurs dans le cluster 1 (A,B,C), la première requête mendatera le serveur A, la seconde le B, la troisième le C et cela recommence vers A pour la prochaine requête, etc. 
+
 ### Dockerfile
-La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement de deux modules apache qui concerne le load balancing :
-- proxy_balancer: Module officiel apache qui fonctionne avec celui du reverse proxy utilisé dans l'étape précédente. Cela va donc permettre à notre reverse proxy de pouvoir faire du load balancing.
-- lbmethod_byrequests: Module devant être activer afin de pouvoir faire du load balancing en mode round robin (weighted). Il permet de distribuer les requêtes à tous les processus worker afin qu'ils traitent tous le nombre de requêtes pour lequel ils ont été configurés.
+La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement d'un module apache permettant de gérer les headers HTTP qui est le module `headers`.
 
 Le reste du docker file n'a pas changé.
 
@@ -23,7 +29,7 @@ COPY templates /var/apache2/templates
 
 COPY conf/ /etc/apache2
 
-RUN a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests
+RUN a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests headers
 RUN a2ensite 000-* 001-*
 ```
 
@@ -31,7 +37,7 @@ RUN a2ensite 000-* 001-*
 Ce fichier n'a pas changé.
 
 ### config-template.php
-Ce script php rend en sortie la configuration virtual host. Il utilise les variables d'environnement passées en paramètre lors de la création du container. Comme décrit plus haut, ce script sera utilisé par `apache2-foreground` qui va écrire le résultat dans le fichier `001-reverse-proxy.conf`, ce qui permet de créé dynamiquement la configuration virtual host.
+Ce script php rend en sortie la configuration virtual host. Il utilise les variables d'environnement passées en paramètre lors de la création du container. Ce script sera utilisé par `apache2-foreground` qui va écrire le résultat dans le fichier `001-reverse-proxy.conf`, ce qui permet de créé dynamiquement la configuration virtual host.
 ```
 <?php
 	$staticAppAddress1 = getenv('STATIC_APP_1');
@@ -47,10 +53,12 @@ Ce script php rend en sortie la configuration virtual host. Il utilise les varia
 		BalancerMember 'http://<?php print "$dynamicAppAddress1"; ?>'
 		BalancerMember 'http://<?php print "$dynamicAppAddress2"; ?>'
 	</Proxy>
-
+	
+	Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED
 	<Proxy "balancer://static-cluster">
-		BalancerMember 'http://<?php print "$staticAppAddress1"; ?>/'
-		BalancerMember 'http://<?php print "$staticAppAddress2"; ?>/'
+		BalancerMember 'http://<?php print "$staticAppAddress1"; ?>/' route=1
+		BalancerMember 'http://<?php print "$staticAppAddress2"; ?>/' route=2
+		ProxySet stickysession=ROUTEID
 	</Proxy>
 
 	# API
@@ -62,20 +70,23 @@ Ce script php rend en sortie la configuration virtual host. Il utilise les varia
 	ProxyPassReverse '/' 'balancer://mycluster1/'
 	
 </VirtualHost>
+
 ```
+Voici les modifications apportées par rapport à l'étape précédente :
 
-Nous définissons deux clusters (dynamic-cluster et static-cluster). Chaque cluster défini des "balancerMember" qui sont des liesn vers chaque serveur que nous voulons ajouter au cluster (c'est donc plusieurs réplications du même site, ici le site web statique ou l'API dynamique). Ensuite nous avons les "ProxyPass et ProxyPassReverse" qui vont référencer les routes et quel cluster y est associé.
+Nous avons ajouté le header `Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED` qui permet d'ajouter le header "Set-Cookie" à nos requête HTTP. Et nous définissons un cookie "ROUTEID" avec la route du BalancerMember choisi. Ainsi, il sera possible au reverse proxy de savoir quel serveur utiliser pour les prochaines requête de cet utilisateur.
 
-Nous avons donc deux clusters et dans chacun d'eux nous avons deux réplications du site en question. Notre reverse proxy va donc être capable d'aiguiller chaque requête vers le bon serveur web en fonction de la charge.
+Dans le cluster ou nous voulons ajouter les sticky sessions, a la fin des "BalancerMember" nous ajoutons les routes de 1 à n. Puis un `ProxySet stickysession=ROUTEID` afin que notre proxy sache qu'il faut utiliser notre ROUTEID comme cookie pour le sticky sessions.
 
 ### Scripts container
-```
-#!/bin/bash
-docker run -e STATIC_APP_1=172.17.0.2:80 -e STATIC_APP_2=172.17.0.3:80 -e DYNAMIC_APP_1=172.17.0.4:3000 -e DYNAMIC_APP_2=172.17.0.5:3000 -p 8080:80 res/apache_rp
-```
-La seule chose ajoutée à ce script par rapport à la précédente étape est que nous ajoutons 2 variables d'environnemnt en plus "STATIC_APP_2" et "DYNAMIC_APP_2" et nous avon renommé les précédente avec "_1" à la fin. Ainsi nous avons pour chaque serveur web (statique / dynamique), des variables d'environnements représentant leur IP.
+Le script pour lancer notre container reverse proxy ne change pas par rapport à l'étape précédente.
 
-### Site web statique
+### Application web dynamique (API)
+
+TODO RESTE DEPUIS LA
+
+
+Rien
 Afin de voir si le load balancing fonctionne correctement, nous avons modifier notre site web statique :
 - Le fichier "index.html" à été renommé en "index.php" afin de pouvoir écrire du PHP à l'intérieur.
 - Nous avons ajouté en PHP l'affichage de l'IP du serveur qui a généré la page web.
