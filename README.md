@@ -1,37 +1,12 @@
-# Etape supplémentaire 2: Load balancing -> Sticky sessions VS Round-Robin
+# Etape supplémentaire 3: Dynamic cluster management
 ## Description
-Dans cette étape, nous allons comparer la notion de sticky sessions et celle de round robin. Pour cela nous allons mettre en place un système de sticky sessions sur le cluster du site web statique. Nous laisserons le cluster de l'application web dynamique en round-robin (ce qui était par défaut jusqu'à maintenant).
+Dans cette étape, nous allons ajouter à notre solution actuelle un système de gestion dynamique de nos cluster. Pour se faire nous allons utiliser l'outil créer par apache qui est le **balancer-manager**.
 
 ## Travail effectué
-Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-load-balancer).
-
-### Sticky sessions
-Lorsqu'une requête est mandatée vers un serveur d'arrière-plan particulier, toutes les requêtes suivantes du même utilisateur seront alors mandatées vers le même serveur d'arrière-plan. De nombreux répartiteurs de charge implémentent cette fonctionnalité via une table qui associe les adresses IP des clients aux serveurs d'arrière-plan.
-
-Dans notre configuration, nous allons utiliser les headers HTTP ainsi que des cookies pour implémenter la notion de sticky sessions.
-
-### Round-robin
-Chaque requête envoyée au reverse proxy va être redirigé vers un serveur du cluster de manière incrémental et cyclique. Si nous avons 3 serveurs dans le cluster 1 (A,B,C), la première requête mendatera le serveur A, la seconde le B, la troisième le C et cela recommence vers A pour la prochaine requête, etc. 
+Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-dynamic-configuration).
 
 ### Dockerfile
-La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement d'un module apache permettant de gérer les headers HTTP qui est le module `headers`.
-
-Le reste du docker file n'a pas changé.
-
-```
-FROM php:7.4.5-apache
-
-RUN apt-get update && \
-    apt-get install -y nano
-    
-COPY apache2-foreground /usr/local/bin/
-COPY templates /var/apache2/templates
-
-COPY conf/ /etc/apache2
-
-RUN a2enmod proxy proxy_http proxy_balancer lbmethod_byrequests headers
-RUN a2ensite 000-* 001-*
-```
+Ce fichier n'a pas changé
 
 ### apache2-foreground
 Ce fichier n'a pas changé.
@@ -61,6 +36,11 @@ Ce script php rend en sortie la configuration virtual host. Il utilise les varia
 		ProxySet stickysession=ROUTEID
 	</Proxy>
 
+	<Location "/balancer-manager">
+		SetHandler balancer-manager
+	</Location>
+	ProxyPass /balancer-manager !
+
 	# API
 	ProxyPass '/api/' 'balancer://dynamic-cluster/'
 	ProxyPassReverse '/api/' 'balancer://dynamic-cluster/'
@@ -70,13 +50,18 @@ Ce script php rend en sortie la configuration virtual host. Il utilise les varia
 	ProxyPassReverse '/' 'balancer://mycluster1/'
 	
 </VirtualHost>
-
 ```
 Voici les modifications apportées par rapport à l'étape précédente :
 
-Nous avons ajouté le header `Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED` qui permet d'ajouter le header "Set-Cookie" à nos requête HTTP. Et nous définissons un cookie "ROUTEID" avec la route du BalancerMember choisi. Ainsi, il sera possible au reverse proxy de savoir quel serveur utiliser pour les prochaines requête de cet utilisateur.
+Nous avons ajouté la partie :
+```
+<Location "/balancer-manager">
+	SetHandler balancer-manager
+</Location>
+ProxyPass /balancer-manager !
+```
 
-Dans le cluster ou nous voulons ajouter les sticky sessions, a la fin des "BalancerMember" nous ajoutons les routes de 1 à n. Puis un `ProxySet stickysession=ROUTEID` afin que notre proxy sache qu'il faut utiliser notre ROUTEID comme cookie pour le sticky sessions.
+Qui permet à l'appelle de la page "labohttp.ch:8080/balancer-manager" d'arriver sur l'outil permettant le management des clusters. C'est un outil proposé par apache et qui permet de facilement gérer nos clusters et workers à chaud.
 
 ### Scripts container
 Le script pour lancer notre container reverse proxy ne change pas par rapport à l'étape précédente.
@@ -99,5 +84,12 @@ Le site web statique n'a pas changé
 ```
 <IP docker> labohttp.ch
 ```
-8. Si vous rafraichissez plusieurs fois la page du site web static, vous devriez voir que l'IP du serveur est toujours la même. Ceci montre le bon fonctionnement des "sticky sessions". Pour aller plus loin, en allant dans les developer tools de votre navigateur, il est possible de voir les headers de la requête envoyée (Request Headers) et on y retrouve le cookie `Cookie: ROUTEID=.1` ou `Cookie: ROUTEID=.2` qui correspond à la route définie dans notre cluster. Il est aussi possible d'ouvrir un autre onglet en navigation privé et il est possible qu'il aie un serveur différent du premier onglet.
-9. Contrairement au site web statique, notre API est restée en mode round-robin, il est possible de le voir en allant à l'adresse "labohttp.ch:8080/api/" et en refraîchissant plusieurs fois la page, nous pouvons voir le load balancing s'effectuer en ode round-robin car les serveurs changent à chaque requête. 
+
+### Fonctionnement du "balancer manager"
+En accédant à l'URL: "labohttp.ch:8080/balancer-manager" nous arrivons sur une page qui nous montre nos deux clusters (dynamic-cluster et static-cluster). Pour voir et tester le fonctionnement de cet outil, nous pouvons cliquer sur le worker "http://172.17.0.4:3000" qui est dans le "dynamic-cluster". Dans le formulaire du bas, dans la case "stopped" nous pouvons mettre son status à "on", puis "submit" les changements. 
+
+Maintenant si nous accédons à notre API (http://labohttp.ch:8080/api/), en rafraîchissant plusieurs fois la page, nous pouvons voir que l'IP du serveur reste la même, à savoir: 172.17.0.5.
+
+Si nous revenons sur notre balancer manager et remettons le status "stopped" du worker à "off". Si on retourne sur notre API on remarque que l'IP du serveur change denouveau.
+
+Cela prouve donc le fonctionnement de notre balancer manager, il est possible d'effectuer des changements à chaud sans devoir relancer le reverse proxy ou loader une nouvelle confifuration.
