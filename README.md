@@ -8,7 +8,7 @@ Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub
 ### Dockerfile
 La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement de deux modules apache qui concerne le load balancing :
 - proxy_balancer: Module officiel apache qui fonctionne avec celui du reverse proxy utilisé dans l'étape précédente. Cela va donc permettre à notre reverse proxy de pouvoir faire du load balancing.
-- lbmethod_byrequests: Module devant être activer afin de pouvoir faire du load balancing. Il permet de distribuer les requêtes à tous les processus worker afin qu'ils traitent tous le nombre de requêtes pour lequel ils ont été configurés.
+- lbmethod_byrequests: Module devant être activer afin de pouvoir faire du load balancing en mode round robin (weighted). Il permet de distribuer les requêtes à tous les processus worker afin qu'ils traitent tous le nombre de requêtes pour lequel ils ont été configurés.
 
 Le reste du docker file n'a pas changé.
 
