@@ -82,28 +82,22 @@ Dans le cluster ou nous voulons ajouter les sticky sessions, a la fin des "Balan
 Le script pour lancer notre container reverse proxy ne change pas par rapport à l'étape précédente.
 
 ### Application web dynamique (API)
+L'application web dynamique n'a pas changé
 
-TODO RESTE DEPUIS LA
-
-
-Rien
-Afin de voir si le load balancing fonctionne correctement, nous avons modifier notre site web statique :
-- Le fichier "index.html" à été renommé en "index.php" afin de pouvoir écrire du PHP à l'intérieur.
-- Nous avons ajouté en PHP l'affichage de l'IP du serveur qui a généré la page web.
-
-Il va donc falloir build une nouvelle fois l'image du serveur web static afin de prendre ces changements en compte.
+### Site web statique
+Le site web statique n'a pas changé
 
 ### Marche à suivre pour démarrer l'infrastructure
-1. Reconstruire l'image du site web static en allant dans le dossier `docker-images/apache-php-image/` et lancant le script `build-image.sh`.
-2. Reconstruire l'image du server-proxy en retournant dans le dossier `docker-images/apache-reverse-proxy/` et lancant le script `build-image-reverse-proxy.sh`.
-3. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
-4. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
-5. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
-6. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
+1. Reconstruire l'image du server-proxy en retournant dans le dossier `docker-images/apache-reverse-proxy/` et lancant le script `build-image-reverse-proxy.sh`.
+2. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
+3. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
+4. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
+5. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
 - 6a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
 - 6b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
 7. Il est maintenant possible d'accéder au site web via le domaine "labohttp.ch" sur un navigateur, il est cependant nécessaire d'ajouter l'entrée ci-dessous dans le fichier `hosts` de la machine (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
 ```
 <IP docker> labohttp.ch
 ```
-8. Si vous rafraichissez plusieurs fois la page, vous devriez voir l'ip du serveur changer, cela signifie que le load balancing fonctionne correctement.
+8. Si vous rafraichissez plusieurs fois la page du site web static, vous devriez voir que l'IP du serveur est toujours la même. Ceci montre le bon fonctionnement des "sticky sessions". Pour aller plus loin, en allant dans les developer tools de votre navigateur, il est possible de voir les headers de la requête envoyée (Request Headers) et on y retrouve le cookie `Cookie: ROUTEID=.1` ou `Cookie: ROUTEID=.2` qui correspond à la route définie dans notre cluster. Il est aussi possible d'ouvrir un autre onglet en navigation privé et il est possible qu'il aie un serveur différent du premier onglet.
+9. Contrairement au site web statique, notre API est restée en mode round-robin, il est possible de le voir en allant à l'adresse "labohttp.ch:8080/api/" et en refraîchissant plusieurs fois la page, nous pouvons voir le load balancing s'effectuer en ode round-robin car les serveurs changent à chaque requête. 
