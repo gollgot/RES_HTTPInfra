@@ -98,8 +98,8 @@ Il va donc falloir build une nouvelle fois l'image du serveur web dynamique afin
 6. Ajouter l'entrée `<IP docker> labohttp.ch` dans le fichier `hosts` de la machine hôte (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
 7. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
 8. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
-9. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
-- 7a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
-- 7b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
+9. Assurez-vous qu'il n'y ait que ces containers de lancés et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes. Sinon, démarrer le container du reverse proxy avec le script run-container-reverse-proxy.sh
+- 9a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
+- 9b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
 8. Il est maintenant possible d'accéder au deux serveurs web, static et dynamique, via les URL `labohttp.ch:8080/` et `labohttp.ch:8080/api/` respectivement, en utilisant le port 8080.
 9. Si vous rafraichissez plusieurs fois la page du site statique ou de l'API, vous devriez voir l'ip du serveur changer, cela signifie que le load balancing fonctionne correctement.
