@@ -1,6 +1,6 @@
 # Etape supplémentaire 2: Load balancing -> Sticky sessions VS Round-Robin
 ## Description
-Dans cette étape, nous allons comparer la notion de sticky sessions et celle de round robin. Pour cela nous allons mettre en place un système de sticky sessions sur le cluster du site web statique. Nous laisserons le cluster de l'application web dynamique en round-robin (ce qui était par défaut jusqu'à maintenant).
+Dans cette étape, nous allons comparer la notion de sticky sessions et celle de round robin. Pour cela nous mettrons en place un système de sticky sessions sur le cluster du site web statique. Nous laisserons le cluster de l'application web dynamique en round-robin (ce qui était par défaut jusqu'à maintenant).
 
 ## Travail effectué
 Le travail réalisé lors de cette étape est disponible dans notre [repo GitHub](https://github.com/gollgot/RES_HTTPInfra/tree/fb-load-balancer).
@@ -11,7 +11,7 @@ Lorsqu'une requête est mandatée vers un serveur d'arrière-plan particulier, t
 Dans notre configuration, nous allons utiliser les headers HTTP ainsi que des cookies pour implémenter la notion de sticky sessions.
 
 ### Round-robin
-Chaque requête envoyée au reverse proxy va être redirigé vers un serveur du cluster de manière incrémental et cyclique. Si nous avons 3 serveurs dans le cluster 1 (A,B,C), la première requête mendatera le serveur A, la seconde le B, la troisième le C et cela recommence vers A pour la prochaine requête, etc. 
+Chaque requête envoyée au reverse proxy va être redirigé vers un serveur du cluster de manière incrémental et cyclique. Si nous avons 3 serveurs dans le cluster 1 (A,B,C), la première requête mandatera le serveur A, la seconde le B, la troisième le C et cela recommence vers A pour la prochaine requête, etc. 
 
 ### Dockerfile
 La base du dockerfile de cette étape est la même que celle des étapes précédentes. Nous avons ajouté en plus le chargement d'un module apache permettant de gérer les headers HTTP qui est le module `headers`.
@@ -76,7 +76,7 @@ Voici les modifications apportées par rapport à l'étape précédente :
 
 Nous avons ajouté le header `Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED` qui permet d'ajouter le header "Set-Cookie" à nos requête HTTP. Et nous définissons un cookie "ROUTEID" avec la route du BalancerMember choisi. Ainsi, il sera possible au reverse proxy de savoir quel serveur utiliser pour les prochaines requête de cet utilisateur.
 
-Dans le cluster ou nous voulons ajouter les sticky sessions, a la fin des "BalancerMember" nous ajoutons les routes de 1 à n. Puis un `ProxySet stickysession=ROUTEID` afin que notre proxy sache qu'il faut utiliser notre ROUTEID comme cookie pour le sticky sessions.
+Dans le cluster ou nous voulons ajouter les sticky sessions, a la fin des "BalancerMember" nous ajoutons les routes de 1 à n. Puis un `ProxySet stickysession=ROUTEID` afin que notre proxy sache qu'il faut utiliser notre ROUTEID comme cookie pour le sticky session.
 
 ### Scripts container
 Le script pour lancer notre container reverse proxy ne change pas par rapport à l'étape précédente.
@@ -92,7 +92,7 @@ Le site web statique n'a pas changé
 2. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
 3. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
 4. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
-5. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
+5. Assurez-vous qu'il n'y ait que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes. Sinon, démarrer le container du reverse proxy avec le script run-container-reverse-proxy.sh
 - 6a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
 - 6b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
 7. Il est maintenant possible d'accéder au site web via le domaine "labohttp.ch" sur un navigateur, il est cependant nécessaire d'ajouter l'entrée ci-dessous dans le fichier `hosts` de la machine (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
