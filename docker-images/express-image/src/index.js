@@ -1,11 +1,12 @@
 var express = require('express');
 var Chance = require('chance');
+var Ip = require('ip');
 
 var app = express();
 var chance = new Chance();
 
 app.get('/', function(request, response){
-    response.send('Les routes sont /cities/{number} et /animals/{type}/{number} où {number} doit être un nombre entier positif et {type} peut être "ocean", "desert", "grassland", "forest", "farm", "pet", ou "zoo".');
+    response.send('Bienvenue sur le serveur <b>'+Ip.address()+'</b><br>Les routes sont: <ul><li>/cities/{number}</li><li>/animals/{type}/{number}</li></ul> où {number} doit être un nombre entier positif et {type} peut être "ocean", "desert", "grassland", "forest", "farm", "pet", ou "zoo".');
 });
 
 app.get('/cities/:number', function(request, response){
