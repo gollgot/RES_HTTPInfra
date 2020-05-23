@@ -60,6 +60,7 @@
             <a href="#download" class="btn btn-outline btn-xl js-scroll-trigger">Little button</a>
             <br><br><br>
             <h2>Some awesome pets : <span class="pet"></span></h2>
+            <h3>Server ip : <?php echo $_SERVER['SERVER_ADDR']?></h3>
           </div>
         </div>
         <div class="col-lg-5 my-auto">
