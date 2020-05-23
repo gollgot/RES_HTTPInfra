@@ -82,15 +82,24 @@ Afin de voir si le load balancing fonctionne correctement, nous avons modifier n
 
 Il va donc falloir build une nouvelle fois l'image du serveur web static afin de prendre ces changements en compte.
 
+### Aplication web dynamique (API)
+Afin de voir si le load balancing fonctionne correctement, nous avons modifier notre application web dynamique :
+- Nous avons ajouter le module node `ip` qui permet d'afficher l'IP du serveur qui à généré la page.
+- Nous avons modifier la route GET "/" de notre API pour qu'elle affiche l'IP du serveur qui a généré la page 
+
+Il va donc falloir build une nouvelle fois l'image du serveur web dynamique afin de prendre ces changements en compte.
+
 ### Marche à suivre pour démarrer l'infrastructure
 1. Reconstruire l'image du site web static en allant dans le dossier `docker-images/apache-php-image/` et lancant le script `build-image.sh`.
-2. Rendre le fichier `apache2-foreground` exécutable en retournant dans le dossier `docker-images/apache-reverse-proxy/` et en faisant `chmod +x apache2-foreground`.
-3. Reconstruire l'image du server-proxy en lancant le script `build-image-reverse-proxy.sh`.
-4. Ajouter l'entrée `<IP docker> labohttp.ch` dans le fichier `hosts` de la machine hôte (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
-5. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
-6. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
-7. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
+2. Installer le nouveau module node `IP` en allant dans le dossier `docker-images/express-image/src/` et faisant un `npm install`.
+3. Reconstruire l'image de l'application web dynamique en lancant le script `build-image.sh`.
+4. Rendre le fichier `apache2-foreground` exécutable en retournant dans le dossier `docker-images/apache-reverse-proxy/` et en faisant `chmod +x apache2-foreground`.
+5. Reconstruire l'image du server-proxy en lancant le script `build-image-reverse-proxy.sh`.
+6. Ajouter l'entrée `<IP docker> labohttp.ch` dans le fichier `hosts` de la machine hôte (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
+7. Démarrer deux fois le container statique en lancant deux fois le script `run-container-static.sh`.
+8. Démarrer deux fois le container dynamique en lancant deux fois le script `run-container-express.sh`.
+9. Assurer vous qu'il y a que ces containers de lancé et dans l'ordre demandé dans les étapes précédentes. Si ce n'est pas le cas, il va falloir faire les 2 étapes suivantes.
 - 7a: A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP des quatre containers.
 - 7b: Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express. Il doit y avoir deux containers statiques et deux containers dynamiques.
 8. Il est maintenant possible d'accéder au deux serveurs web, static et dynamique, via les URL `labohttp.ch:8080/` et `labohttp.ch:8080/api/` respectivement, en utilisant le port 8080.
-9. Si vous rafraichissez plusieurs fois la page, vous devriez voir l'ip du serveur changer, cela signifie que le load balancing fonctionne correctement.
+9. Si vous rafraichissez plusieurs fois la page du site statique ou de l'API, vous devriez voir l'ip du serveur changer, cela signifie que le load balancing fonctionne correctement.
