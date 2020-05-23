@@ -69,12 +69,10 @@ docker run -d -e STATIC_APP=172.17.0.2:80 -e DYNAMIC_APP=172.17.0.3:3000 -p 8080
 Ce script modifié, à l'aide de l'option `-e`, ajoute des variables d'environnement qui spécifient les adresses IP et ports des deux containers des sites web. Selon les adresses IP des containers spécifiés, il est nécessaire de modifier la commande avec les adresses correspondantes. Ainsi, bien qu'il soit plus pratique de taper directement la commande manuellement afin d'éviter une erreur, nous avons tout de même mis à jour le script pour avoir un modèle de cette commande.
 
 ### Marche à suivre pour démarrer l'infrastructure
-1. Reconstruire l'image du server-proxy avec le script `build-image-reverse-proxy.sh`.
 1. Rendre le fichier `apache2-foreground` exécutable avec `chmod +x apache2-foreground`.
+1. Reconstruire l'image du server-proxy avec le script `build-image-reverse-proxy.sh`.
 1. Démarrer les deux premiers containers avec les scripts `run-container-static.sh` et `run-container-express.sh`.
+1. Ajouter l'entrée `<IP docker> labohttp.ch` dans le fichier `hosts` de la machine hôte (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
 1. A l'aide de la commande `docker inspect <container> | grep -i ipaddr` récupérer les addresses IP de ces deux containers.
 1. Démarrer le container du reverse proxy avec le script `run-container-reverse-proxy.sh`, en prenant soin de mettre les adresses IP récupérées précédemment en paramètre ainsi que les ports: 80 pour le static et 3000 pour l'express.
-1. Il est maintenant possible d'accéder au deux serveurs web, static et express, via les URL `/` et `/api/` respectivement, en utilisant le port 8080. Pour y accéder via le domaine "labohttp.ch" sur un navigateur, il est nécessaire d'ajouter l'entrée ci-dessous dans le fichier `hosts` de la machine (en prenant soin de remplacer `<IP docker>` par l'adresse de la VM docker, sur Linux 127.0.0.1, sur Windows l'adresse donnée par docker toolbox)
-```
-<IP docker> labohttp.ch
-```
+1. Il est maintenant possible d'accéder au deux serveurs web, static et dynamique, via les URL `labohttp.ch:8080/` et `labohttp.ch:8080/api/` respectivement, en utilisant le port 8080.
