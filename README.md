@@ -16,4 +16,17 @@ Ceci va directement démarrer un container Portainer en utilisant leur image dis
 Après avoir créé l'administrateur nous avons le choix entre différents types d'environnement que nous souhaitons gérer: local, remote, agent ou azure. Dans notre cas, nous souhaitons gérer un environnement local.
 
 ### Utilisation
-WIP
+[Portainer interface](screenschots/portainer.png)
+
+Arrivé sur la page d'accueil, nous pouvons accéder à tous nos containers en cliquant sur "Container" dans le menu latéral, nous menant à la vue ci-dessus. Nous avons maintenant accès à de nombreuses fonctionnalités faisant analogie aux différentes commandes docker comme:
+- lister tous les containers,
+- démarrer et stopper les containers,
+- exécuter une console dans un container,
+- faire un "inspect" pour accéder aux informations du container,
+- obtenir les logs ou statistiques matériels,
+- créer de nouveaux containers,
+- etc.
+
+En observant le menu de gauche, nous voyons qu'il existe de nombreuses autres fonctionnalités, notamment pour gérer nos images docker.
+
+En somme, Portainer offre une interface graphique intuitive permettant de faire tout ce qui est possible avec les commandes `docker`.
