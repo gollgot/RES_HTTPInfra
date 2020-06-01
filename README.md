@@ -8,6 +8,8 @@ Voici les caractéristiques de l'OS utilisé pour la réalisation de ce laborato
 
 ![Screenfetch](screenshots/screenfetch.png)
 
+Docker version : `19.03.8, build afacb8b7f0`
+
 # Fonctionnement du repository
 Voici les différentes étapes réalisées
 
@@ -21,4 +23,4 @@ Voici les différentes étapes réalisées
 8. [Etape supplémentaire 3: Dynamic cluster management](https://github.com/gollgot/RES_HTTPInfra/tree/fb-dynamic-management)
 9. [Etape supplémentaire 4: Management UI](https://github.com/gollgot/RES_HTTPInfra/tree/fb-management-ui)
 
-Chaque étape reprend le travail de la précédente, nous vous recommandons donc de suivre une a une, dans cet ordre les étapes. Chaque étape est une branche et vous retrouverez un README.md vous expliquant tout ce qu'il faut savoir concernant l'étape en cours.
+Chaque étape reprend le travail de la précédente, nous vous recommandons donc de les suivre une a une, dans cet ordre. Chaque étape est une branche et vous retrouverez un README.md vous expliquant tout ce qu'il faut savoir concernant l'étape en cours.
